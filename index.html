@@ -1,0 +1,503 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#07070a">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="StreamGrabber">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="icon" href="/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/icon.svg">
+<title>StreamGrabber</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #07070a;
+    --surface: rgba(255,255,255,0.035);
+    --surface-2: rgba(255,255,255,0.06);
+    --border: rgba(255,255,255,0.08);
+    --border-strong: rgba(255,255,255,0.16);
+    --text: #f5f5f7;
+    --muted: #8b8b98;
+    --accent: #ff4d6d;
+    --accent-2: #ff8a3d;
+    --accent-glow: rgba(255,77,109,0.35);
+    --ok: #34d399;
+    --err: #fb7185;
+    --radius: 18px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { min-height: 100%; }
+  body {
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    display: flex;
+    justify-content: center;
+    padding: 64px 16px;
+    -webkit-font-smoothing: antialiased;
+    overflow-x: hidden;
+  }
+
+  /* ambient background */
+  .bg { position: fixed; inset: 0; z-index: -1; overflow: hidden; }
+  .blob { position: absolute; border-radius: 50%; filter: blur(110px); opacity: .55; animation: drift 22s ease-in-out infinite alternate; }
+  .blob.a { width: 520px; height: 520px; background: #ff4d6d; top: -180px; left: -120px; opacity: .22; }
+  .blob.b { width: 460px; height: 460px; background: #7c3aed; bottom: -200px; right: -120px; opacity: .2; animation-delay: -8s; }
+  .blob.c { width: 320px; height: 320px; background: #ff8a3d; top: 40%; left: 55%; opacity: .1; animation-delay: -14s; }
+  .grid-overlay {
+    position: absolute; inset: 0;
+    background-image: linear-gradient(rgba(255,255,255,.025) 1px, transparent 1px),
+                      linear-gradient(90deg, rgba(255,255,255,.025) 1px, transparent 1px);
+    background-size: 48px 48px;
+    mask-image: radial-gradient(ellipse at center, #000 30%, transparent 75%);
+  }
+  @keyframes drift { to { transform: translate(60px, 40px) scale(1.1); } }
+
+  .wrap { width: 100%; max-width: 640px; }
+
+  /* header */
+  header { text-align: center; margin-bottom: 36px; }
+  .logo {
+    display: inline-flex; align-items: center; gap: 10px;
+    padding: 6px 14px 6px 6px; border-radius: 999px;
+    background: var(--surface); border: 1px solid var(--border);
+    font-size: 13px; font-weight: 600; color: var(--muted); margin-bottom: 22px;
+  }
+  .logo-mark {
+    width: 26px; height: 26px; border-radius: 50%;
+    background: linear-gradient(135deg, var(--accent), var(--accent-2));
+    display: grid; place-items: center;
+  }
+  h1 {
+    font-size: clamp(34px, 6vw, 52px); font-weight: 800; letter-spacing: -0.04em; line-height: 1.05;
+  }
+  h1 .grad {
+    background: linear-gradient(90deg, var(--accent), var(--accent-2));
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+  }
+  .lede { color: var(--muted); margin-top: 14px; font-size: 16px; }
+
+  /* card */
+  .card {
+    background: linear-gradient(180deg, rgba(255,255,255,.05), rgba(255,255,255,.02));
+    border: 1px solid var(--border);
+    border-radius: 24px;
+    padding: 10px;
+    backdrop-filter: blur(20px);
+    box-shadow: 0 30px 80px -20px rgba(0,0,0,.7), inset 0 1px 0 rgba(255,255,255,.06);
+  }
+
+  /* url bar */
+  .url-bar {
+    display: flex; align-items: center; gap: 8px;
+    background: rgba(0,0,0,.35); border: 1px solid var(--border);
+    border-radius: 16px; padding: 6px 6px 6px 16px;
+    transition: border-color .2s, box-shadow .2s;
+  }
+  .url-bar:focus-within { border-color: rgba(255,77,109,.5); box-shadow: 0 0 0 4px rgba(255,77,109,.12); }
+  .url-bar svg.link { flex-shrink: 0; color: var(--muted); }
+  .url-bar input {
+    flex: 1; min-width: 0; background: none; border: none; outline: none;
+    color: var(--text); font: inherit; font-size: 16px; padding: 12px 4px; /* 16px stops iPhone auto-zoom */
+  }
+  .url-bar input::placeholder { color: #5c5c68; }
+  .ghost-btn {
+    background: var(--surface-2); border: 1px solid var(--border); color: var(--muted);
+    font: inherit; font-size: 13px; font-weight: 500; padding: 9px 12px; border-radius: 10px;
+    cursor: pointer; transition: all .15s; white-space: nowrap;
+  }
+  .ghost-btn:hover { color: var(--text); border-color: var(--border-strong); }
+
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+    background: linear-gradient(135deg, var(--accent), var(--accent-2));
+    color: #fff; border: none; font: inherit; font-weight: 600; font-size: 14px;
+    padding: 12px 20px; border-radius: 12px; cursor: pointer; white-space: nowrap;
+    box-shadow: 0 8px 24px -6px var(--accent-glow), inset 0 1px 0 rgba(255,255,255,.25);
+    transition: transform .12s, filter .2s, opacity .2s;
+  }
+  .btn:hover { filter: brightness(1.08); }
+  .btn:active { transform: scale(.97); }
+  .btn:disabled { opacity: .5; cursor: not-allowed; filter: grayscale(.4); }
+  .btn.full { width: 100%; padding: 16px; font-size: 15px; border-radius: 14px; }
+
+  .spinner {
+    width: 16px; height: 16px; border-radius: 50%;
+    border: 2px solid rgba(255,255,255,.35); border-top-color: #fff;
+    animation: spin .7s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .hint { display: flex; justify-content: center; gap: 18px; flex-wrap: wrap; padding: 14px 8px 6px; color: #5c5c68; font-size: 12.5px; }
+  .hint span { display: inline-flex; align-items: center; gap: 6px; }
+
+  /* result */
+  .result { display: none; padding: 10px 6px 6px; animation: rise .45s cubic-bezier(.2,.8,.2,1); }
+  .result.show { display: block; }
+  @keyframes rise { from { opacity: 0; transform: translateY(10px); } }
+
+  .media { display: flex; gap: 16px; padding: 14px; border-radius: var(--radius); background: var(--surface); border: 1px solid var(--border); }
+  .thumb {
+    position: relative; width: 168px; aspect-ratio: 16/9; flex-shrink: 0;
+    border-radius: 12px; overflow: hidden; background: #15151b;
+  }
+  .thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .duration {
+    position: absolute; right: 6px; bottom: 6px; background: rgba(0,0,0,.75);
+    font-size: 11px; font-weight: 600; padding: 3px 6px; border-radius: 6px;
+  }
+  .meta { min-width: 0; display: flex; flex-direction: column; justify-content: center; gap: 8px; }
+  .meta h3 {
+    font-size: 16px; font-weight: 600; line-height: 1.35; letter-spacing: -0.01em;
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+  }
+  .meta .sub { color: var(--muted); font-size: 13px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .chip { font-size: 11px; font-weight: 600; padding: 3px 8px; border-radius: 999px; background: var(--surface-2); border: 1px solid var(--border); color: var(--muted); }
+
+  .section-label { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin: 22px 4px 12px; }
+
+  .qualities { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 10px; }
+  .q {
+    position: relative; text-align: left; cursor: pointer;
+    background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
+    padding: 14px; color: var(--text); font: inherit; transition: all .15s;
+  }
+  .q:hover { border-color: var(--border-strong); background: var(--surface-2); }
+  .q.active {
+    border-color: rgba(255,77,109,.7);
+    background: linear-gradient(180deg, rgba(255,77,109,.12), rgba(255,138,61,.05));
+    box-shadow: 0 0 0 3px rgba(255,77,109,.12);
+  }
+  .q .res { font-size: 18px; font-weight: 700; letter-spacing: -0.02em; }
+  .q .tag { font-size: 12px; color: var(--muted); margin-top: 2px; }
+  .q .foot { display: flex; justify-content: space-between; margin-top: 10px; font-size: 11.5px; color: var(--muted); }
+  .q .check {
+    position: absolute; top: 12px; right: 12px; width: 18px; height: 18px; border-radius: 50%;
+    border: 1.5px solid var(--border-strong); display: grid; place-items: center; transition: all .15s;
+  }
+  .q.active .check { background: var(--accent); border-color: var(--accent); }
+  .q .check svg { opacity: 0; }
+  .q.active .check svg { opacity: 1; }
+
+  .actions { margin-top: 18px; }
+
+  /* progress */
+  .progress { display: none; margin-top: 16px; padding: 16px; border-radius: var(--radius); background: var(--surface); border: 1px solid var(--border); }
+  .progress.show { display: block; animation: rise .3s ease; }
+  .progress-top { display: flex; justify-content: space-between; align-items: baseline; font-size: 13px; margin-bottom: 10px; }
+  .progress-top .phase { font-weight: 600; }
+  .progress-top .pct { color: var(--muted); font-variant-numeric: tabular-nums; }
+  .track { height: 8px; border-radius: 999px; background: rgba(255,255,255,.06); overflow: hidden; }
+  .fill {
+    height: 100%; width: 0%; border-radius: 999px;
+    background: linear-gradient(90deg, var(--accent), var(--accent-2));
+    box-shadow: 0 0 16px var(--accent-glow); transition: width .35s ease;
+  }
+  .fill.indeterminate { width: 35% !important; animation: slide 1.1s ease-in-out infinite; }
+  @keyframes slide { from { transform: translateX(-100%); } to { transform: translateX(300%); } }
+  .progress-stats { display: flex; justify-content: space-between; color: var(--muted); font-size: 12px; margin-top: 10px; font-variant-numeric: tabular-nums; }
+  .progress.done .fill { background: var(--ok); box-shadow: 0 0 16px rgba(52,211,153,.4); }
+  .progress.done .phase { color: var(--ok); }
+
+  /* toast */
+  .toast {
+    position: fixed; left: 50%; bottom: 28px; transform: translate(-50%, 20px);
+    background: #1a1a21; border: 1px solid var(--border-strong); color: var(--text);
+    padding: 12px 16px; border-radius: 12px; font-size: 14px; max-width: calc(100% - 32px);
+    display: flex; align-items: center; gap: 10px; opacity: 0; pointer-events: none;
+    transition: all .25s cubic-bezier(.2,.8,.2,1); box-shadow: 0 20px 40px rgba(0,0,0,.5);
+  }
+  .toast.show { opacity: 1; transform: translate(-50%, 0); }
+  .toast .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--err); flex-shrink: 0; }
+  .toast.ok .dot { background: var(--ok); }
+
+  footer { text-align: center; color: #4a4a55; font-size: 12px; margin-top: 28px; }
+
+  .q.disabled { opacity: .4; cursor: not-allowed; }
+  .q.disabled:hover { border-color: var(--border); background: var(--surface); }
+
+  .q, .btn, .ghost-btn { -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
+
+  @media (max-width: 520px) {
+    body {
+      padding: calc(28px + env(safe-area-inset-top)) 12px calc(24px + env(safe-area-inset-bottom));
+    }
+    header { margin-bottom: 24px; }
+    .logo { margin-bottom: 16px; }
+    h1 { font-size: 34px; }
+    .lede { font-size: 15px; padding: 0 8px; }
+    .card { border-radius: 20px; padding: 8px; }
+    .media { flex-direction: column; padding: 10px; gap: 12px; }
+    .thumb { width: 100%; }
+    .meta { padding: 0 4px 4px; }
+    .url-bar { flex-wrap: wrap; padding: 6px; }
+    .url-bar svg.link { display: none; }
+    .url-bar input { flex-basis: 100%; padding: 14px 10px; }
+    .url-bar .ghost-btn, .url-bar .btn { flex: 1; min-height: 48px; font-size: 15px; }
+    .hint { gap: 8px 14px; font-size: 12px; }
+    .qualities { grid-template-columns: repeat(2, 1fr); gap: 8px; }
+    .q { padding: 12px; min-height: 92px; }
+    .q .res { font-size: 17px; }
+    .btn.full { padding: 18px; font-size: 16px; }
+    .toast { bottom: calc(20px + env(safe-area-inset-bottom)); }
+  }
+</style>
+</head>
+<body>
+  <div class="bg"><div class="blob a"></div><div class="blob b"></div><div class="blob c"></div><div class="grid-overlay"></div></div>
+
+  <main class="wrap">
+    <header>
+      <div class="logo">
+        <span class="logo-mark">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="#fff"><path d="M12 3v12m0 0-5-5m5 5 5-5M5 21h14" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>
+        </span>
+        StreamGrabber
+      </div>
+      <h1>Save any video,<br><span class="grad">in any quality.</span></h1>
+      <p class="lede">Paste a link from YouTube, Vimeo, X, TikTok and 1,000+ other sites.</p>
+    </header>
+
+    <section class="card">
+      <form class="url-bar" id="urlForm" autocomplete="off">
+        <svg class="link" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+        <input id="url" type="url" placeholder="https://www.youtube.com/watch?v=…" spellcheck="false" required>
+        <button type="button" class="ghost-btn" id="pasteBtn">Paste</button>
+        <button type="submit" class="btn" id="fetchBtn">Fetch</button>
+      </form>
+
+      <div class="hint" id="hint">
+        <span>⚡ Fast &amp; free</span>
+        <span>📱 Works on phone</span>
+        <span>🎬 Up to 4K</span>
+        <span>🎧 MP3 audio</span>
+      </div>
+
+      <div class="result" id="result">
+        <div class="media">
+          <div class="thumb"><img id="thumb" alt=""><span class="duration" id="duration"></span></div>
+          <div class="meta">
+            <h3 id="title"></h3>
+            <div class="sub"><span id="uploader"></span><span class="chip" id="site"></span></div>
+          </div>
+        </div>
+
+        <div class="section-label">Choose quality</div>
+        <div class="qualities" id="qualities"></div>
+
+        <div class="actions">
+          <button class="btn full" id="downloadBtn">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m0 0-5-5m5 5 5-5M5 21h14"/></svg>
+            <span>Download</span>
+          </button>
+        </div>
+
+        <div class="progress" id="progress">
+          <div class="progress-top"><span class="phase" id="phase">Starting…</span><span class="pct" id="pct"></span></div>
+          <div class="track"><div class="fill" id="fill"></div></div>
+          <div class="progress-stats"><span id="speed"></span><span id="eta"></span></div>
+        </div>
+      </div>
+    </section>
+
+    <footer>Only download videos you have the right to save.</footer>
+  </main>
+
+  <div class="toast" id="toast"><span class="dot"></span><span id="toastMsg"></span></div>
+
+<script>
+  const $ = id => document.getElementById(id);
+
+  // If index.html was opened by double-clicking it, the page can't talk to the server.
+  // Point it at the local server and jump there automatically if it's running.
+  const OPENED_AS_FILE = location.protocol === 'file:';
+  const API = OPENED_AS_FILE ? 'http://127.0.0.1:5000' : '';
+  if (OPENED_AS_FILE) {
+    fetch(API + '/api/health').then(r => r.ok && (location.href = API + '/'))
+      .catch(() => setTimeout(() => toast('Start app.py, then open http://127.0.0.1:5000'), 300));
+  }
+
+  let current = null;      // video info
+  let selected = null;     // chosen quality value
+  let busy = false;
+
+  const fmtBytes = b => {
+    if (!b) return '';
+    const u = ['B','KB','MB','GB']; let i = 0;
+    while (b >= 1024 && i < u.length - 1) { b /= 1024; i++; }
+    return (i >= 2 ? b.toFixed(1) : Math.round(b)) + ' ' + u[i];
+  };
+  const fmtTime = s => {
+    if (s == null) return '';
+    s = Math.round(s);
+    const h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60), sec = s % 60;
+    return (h ? h + ':' + String(m).padStart(2,'0') : m) + ':' + String(sec).padStart(2,'0');
+  };
+
+  let toastTimer;
+  function toast(msg, ok = false) {
+    $('toastMsg').textContent = msg;
+    $('toast').classList.toggle('ok', ok);
+    $('toast').classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => $('toast').classList.remove('show'), 4200);
+  }
+
+  function setLoading(btn, on, label) {
+    btn.disabled = on;
+    if (btn === $('fetchBtn')) btn.innerHTML = on ? '<span class="spinner"></span>' : label;
+  }
+
+  async function api(path, body) {
+    let res;
+    try {
+      res = await fetch(API + path, {
+        method: body ? 'POST' : 'GET',
+        headers: body ? { 'Content-Type': 'application/json' } : {},
+        body: body ? JSON.stringify(body) : undefined,
+      });
+    } catch {
+      throw new Error(OPENED_AS_FILE
+        ? 'Start app.py, then open http://127.0.0.1:5000'
+        : "Can't reach the server. Check your connection and try again.");
+    }
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || 'Server error (' + res.status + ')');
+    return data;
+  }
+
+  $('pasteBtn').onclick = async () => {
+    try {
+      const text = await navigator.clipboard.readText();
+      $('url').value = text.trim();
+      $('url').focus();
+    } catch { toast('Clipboard blocked — press Ctrl/⌘+V instead.'); }
+  };
+
+  $('urlForm').onsubmit = async e => {
+    e.preventDefault();
+    if (busy) return;
+    const url = $('url').value.trim();
+    if (!url) return toast('Paste a link first.');
+
+    setLoading($('fetchBtn'), true);
+    $('result').classList.remove('show');
+    try {
+      current = await api('/api/info', { url });
+      renderInfo(current);
+    } catch (err) {
+      toast(err.message);
+    } finally {
+      setLoading($('fetchBtn'), false, 'Fetch');
+    }
+  };
+
+  function renderInfo(info) {
+    $('thumb').src = info.thumbnail || '';
+    $('thumb').style.visibility = info.thumbnail ? 'visible' : 'hidden';
+    $('duration').textContent = fmtTime(info.duration);
+    $('duration').style.display = info.duration ? '' : 'none';
+    $('title').textContent = info.title;
+    $('uploader').textContent = info.uploader || '';
+    $('site').textContent = info.site || '';
+    $('site').style.display = info.site ? '' : 'none';
+
+    const grid = $('qualities');
+    grid.innerHTML = '';
+    info.options.forEach((o, i) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'q';
+      b.dataset.value = o.value;
+      b.innerHTML = `
+        <span class="check"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5L20 7"/></svg></span>
+        <div class="res"></div><div class="tag"></div>
+        <div class="foot"><span class="ext"></span><span class="size"></span></div>`;
+      b.querySelector('.res').textContent = o.label;
+      b.querySelector('.tag').textContent = o.tag;
+      b.querySelector('.ext').textContent = o.ext;
+      b.querySelector('.size').textContent = o.too_big ? 'Too large' : (o.size ? '~' + fmtBytes(o.size) : '');
+      if (o.too_big) { b.classList.add('disabled'); b.disabled = true; }
+      else b.onclick = () => select(o.value);
+      grid.appendChild(b);
+    });
+
+    // default: 1080p if present, otherwise the best available
+    const ok = info.options.filter(o => !o.too_big);
+    const pref = ok.find(o => o.value === '1080') || ok.find(o => o.value === '720') || ok[0] || info.options[0];
+    select(pref.value);
+
+    $('progress').classList.remove('show', 'done');
+    $('downloadBtn').disabled = false;
+    $('result').classList.add('show');
+    if (!info.ffmpeg) toast('Tip: install ffmpeg to unlock HD qualities and MP3.');
+  }
+
+  function select(value) {
+    selected = value;
+    document.querySelectorAll('.q').forEach(el => el.classList.toggle('active', el.dataset.value === value));
+  }
+
+  $('downloadBtn').onclick = async () => {
+    if (!current || !selected || busy) return;
+    busy = true;
+    $('downloadBtn').disabled = true;
+    $('fetchBtn').disabled = true;
+    const p = $('progress');
+    p.classList.remove('done');
+    p.classList.add('show');
+    updateProgress({ phase: 'Starting…', progress: null });
+
+    try {
+      const { id } = await api('/api/download', { url: current.url, quality: selected });
+      await poll(id);
+    } catch (err) {
+      toast(err.message);
+      p.classList.remove('show');
+    } finally {
+      busy = false;
+      $('downloadBtn').disabled = false;
+      $('fetchBtn').disabled = false;
+    }
+  };
+
+  function updateProgress(s) {
+    $('phase').textContent = s.phase || '';
+    const fill = $('fill');
+    if (s.progress == null) {
+      fill.classList.add('indeterminate');
+      $('pct').textContent = '';
+    } else {
+      fill.classList.remove('indeterminate');
+      fill.style.width = s.progress + '%';
+      $('pct').textContent = Math.round(s.progress) + '%';
+    }
+    $('speed').textContent = s.speed ? fmtBytes(s.speed) + '/s' : '';
+    $('eta').textContent = s.eta != null ? fmtTime(s.eta) + ' left' : '';
+  }
+
+  async function poll(id) {
+    while (true) {
+      const s = await api('/api/progress/' + id);
+      if (s.status === 'error') throw new Error(s.error || 'Download failed.');
+      if (s.status === 'done') {
+        updateProgress({ phase: 'Saved — check your downloads', progress: 100 });
+        $('progress').classList.add('done');
+        const a = document.createElement('a');
+        a.href = API + '/api/file/' + id;
+        a.download = s.filename || '';
+        document.body.appendChild(a); a.click(); a.remove();
+        toast('Download ready: ' + (s.filename || 'file'), true);
+        return;
+      }
+      updateProgress(s);
+      await new Promise(r => setTimeout(r, 600));
+    }
+  }
+</script>
+</body>
+</html>

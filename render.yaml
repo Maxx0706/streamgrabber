@@ -1,0 +1,11 @@
+services:
+  - type: web
+    name: streamgrabber
+    runtime: docker
+    plan: free
+    healthCheckPath: /api/health
+    envVars:
+      - key: MAX_JOBS
+        value: "2"
+      - key: MAX_FILESIZE_MB
+        value: "500"
